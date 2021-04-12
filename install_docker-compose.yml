@@ -1,0 +1,99 @@
+---
+
+- hosts: myhost
+
+  remote_user: wl
+  become: yes
+  become_method: sudo
+  become_user: root
+
+  vars:
+    ditrid_path: "/home/jenkins"
+
+
+  tasks:
+
+  - name:  update package
+    apt:
+      update_cache: yes
+
+  - name: install package
+    apt:
+      name:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+      state: present
+      update_cache: yes
+
+  - name: install GPG key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+
+  - name: add docker url
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+      state: present
+      filename: docker
+      update_cache: yes
+
+  - name:  update package
+    apt:
+      update_cache: yes
+
+  - name: install docker-ce
+    apt:
+      name: docker-ce
+      state: present
+      update_cache: yes
+
+  - name: strart docker
+    systemd:
+      name: docker
+      state: started
+      enabled: yes
+
+  - name:  update package
+    apt:
+      update_cache: yes
+
+  - name: install docker-compose
+    get_url:
+      url:  https://github.com/docker/compose/releases/download/1.26.0/docker-compose-{{ansible_system}}-{{ansible_userspace_architecture}}
+      dest: /usr/local/bin/docker-compose
+      mode: 'a+x'
+
+  - name: installing docker SDK
+    apt:
+      name: python3-pip
+      state: present
+
+
+  - name: python docker and docker-compse module
+    pip:
+      name:
+        - docker
+        - docker-compose
+
+  - name:  update package
+    apt:
+      update_cache: yes
+
+  - name: make app directory
+    file:
+      path: "{{ditrid_path}}"
+      state: directory
+
+  - name: copy docker-compose
+    synchronize:
+      src: docker-compose.yml
+      dest: "{{ditrid_path}}"
+      rsync_opts:
+        - "--chmod=D755"
+
+  - name: deploy docker compose
+    docker_compose:
+      project_src: "{{ditrid_path}}"
+      files:
+      - docker-compose.yml
